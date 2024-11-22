@@ -38,23 +38,18 @@ while True:
     if not ret:
         break
 
-    # Resize frame for faster processing
     small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
-    # Convert BGR to RGB
-    rgb_small_frame = small_frame[:, :, ::-1]
+    rgb_small_frame = np.ascontiguousarray(small_frame[:, :, ::-1])
 
     if process_this_frame:
-        # Find all face locations and encodings in the current frame
         face_locations = face_recognition.face_locations(rgb_small_frame)
         face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
 
         face_names = []
         for face_encoding in face_encodings:
-            # Compare face encodings with known faces
             matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
             name = "Unknown"
 
-            # Use the closest match
             face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
             best_match_index = np.argmin(face_distances)
             if matches[best_match_index]:
@@ -62,36 +57,29 @@ while True:
 
             face_names.append(name)
 
-            # Log attendance
             if name != "Unknown":
                 if name not in df['Name'].values:
                     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    df = df.append({'Name': name, 'Time': current_time}, ignore_index=True)
+                    df = pd.concat([df, pd.DataFrame([{'Name': name, 'Time': current_time}])], ignore_index=True)
                     df.to_csv(attendance_file, index=False)
 
     process_this_frame = not process_this_frame
 
-    # Display results
     for (top, right, bottom, left), name in zip(face_locations, face_names):
-        # Scale back up face locations
         top *= 4
         right *= 4
         bottom *= 4
         left *= 4
 
-        # Draw bounding box
         cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-        # Draw label
         cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 255, 0), cv2.FILLED)
         font = cv2.FONT_HERSHEY_DUPLEX
         cv2.putText(frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
 
-    # Display the resulting frame
     cv2.imshow('SmartAttend - Press Q to Quit', frame)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-# Release resources
 video_capture.release()
 cv2.destroyAllWindows()
